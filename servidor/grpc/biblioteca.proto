@@ -1,0 +1,29 @@
+
+syntax = "proto3";
+
+package biblioteca;
+
+service Biblioteca {
+  rpc ListarLivros (Empty) returns (LivrosResponse);
+  rpc AdicionarLivro (LivroRequest) returns (Livro);
+  rpc StreamLivros (Empty) returns (stream Livro);
+}
+
+message Empty {}
+
+message Livro {
+  int32 id = 1;
+  string titulo = 2;
+  string autor = 3;
+  int32 ano = 4;
+}
+
+message LivroRequest {
+  string titulo = 1;
+  string autor = 2;
+  int32 ano = 3;
+}
+
+message LivrosResponse {
+  repeated Livro livros = 1;
+}

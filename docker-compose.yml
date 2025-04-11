@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  rest:
+    build: ./servidor/rest
+  graphql:
+    build: ./servidor/graphql
+  soap:
+    build: ./servidor/soap
+  grpc:
+    build: ./servidor/grpc

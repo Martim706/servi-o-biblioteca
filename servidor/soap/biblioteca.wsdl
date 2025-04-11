@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions name="BibliotecaService"
+  targetNamespace="http://biblioteca.com/"
+  xmlns="http://schemas.xmlsoap.org/wsdl/"
+  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+  xmlns:tns="http://biblioteca.com/"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+  <message name="getLivrosRequest"/>
+  <message name="getLivrosResponse">
+    <part name="livrosXml" type="xsd:string"/>
+  </message>
+
+  <message name="addLivroRequest">
+    <part name="titulo" type="xsd:string"/>
+    <part name="autor" type="xsd:string"/>
+    <part name="ano" type="xsd:int"/>
+  </message>
+  <message name="addLivroResponse">
+    <part name="resultado" type="xsd:string"/>
+  </message>
+
+  <portType name="BibliotecaPort">
+    <operation name="getLivros">
+      <input message="tns:getLivrosRequest"/>
+      <output message="tns:getLivrosResponse"/>
+    </operation>
+    <operation name="addLivro">
+      <input message="tns:addLivroRequest"/>
+      <output message="tns:addLivroResponse"/>
+    </operation>
+  </portType>
+
+  <binding name="BibliotecaBinding" type="tns:BibliotecaPort">
+    <soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="getLivros">
+      <soap:operation soapAction="getLivros"/>
+      <input><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+    <operation name="addLivro">
+      <soap:operation soapAction="addLivro"/>
+      <input><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+  </binding>
+
+  <service name="BibliotecaService">
+    <port name="BibliotecaPort" binding="tns:BibliotecaBinding">
+      <soap:address location="http://localhost:3003/wsdl"/>
+    </port>
+  </service>
+</definitions>
