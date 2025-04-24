@@ -1,8 +1,13 @@
+import express from 'express';
+import { graphqlHTTP } from 'express-graphql';
+import { buildSchema } from 'graphql';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-const fs = require('fs');
-const path = require('path');
-const grpc = require('@grpc/grpc-js');
-const protoLoader = require('@grpc/proto-loader');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const livrosPath = path.join(__dirname, 'livros.json');
 
@@ -16,36 +21,49 @@ function writeData(data) {
   fs.writeFileSync(livrosPath, JSON.stringify(data, null, 2));
 }
 
-const packageDefinition = protoLoader.loadSync('biblioteca.proto', {});
-const proto = grpc.loadPackageDefinition(packageDefinition).biblioteca;
+const schema = buildSchema(`
+  type Livro {
+    id: Int
+    titulo: String
+    autor: String
+    ano: Int
+  }
 
-function ListarLivros(_, callback) {
-  const livros = readData();
-  callback(null, { livros });
-}
+  input LivroInput {
+    id: Int
+    titulo: String
+    autor: String
+    ano: Int
+  }
 
-function AdicionarLivro(call, callback) {
-  const livros = readData();
-  const novo = { id: Date.now(), ...call.request };
-  livros.push(novo);
-  writeData(livros);
-  callback(null, novo);
-}
+  type Query {
+    livros: [Livro]
+  }
 
-function StreamLivros(call) {
-  const livros = readData();
-  livros.forEach(livro => call.write(livro));
-  call.end();
-}
+  type Mutation {
+    adicionarLivro(input: LivroInput): Livro
+  }
+`);
 
-const server = new grpc.Server();
-server.addService(proto.Biblioteca.service, {
-  ListarLivros,
-  AdicionarLivro,
-  StreamLivros
+const root = {
+  livros: () => readData(),
+  adicionarLivro: ({ input }) => {
+    const livros = readData();
+    const novo = { ...input, id: Date.now() };
+    livros.push(novo);
+    writeData(livros);
+    return novo;
+  }
+};
+
+const app = express();
+app.use('/graphql', graphqlHTTP({
+  schema,
+  rootValue: root,
+  graphiql: true
+}));
+
+app.listen(3002, () => {
+  console.log('Servidor GraphQL a correr em http://localhost:3002/graphql');
 });
 
-server.bindAsync('0.0.0.0:50051', grpc.ServerCredentials.createInsecure(), () => {
-  console.log('Servidor gRPC ativo em http://localhost:50051');
-  server.start();
-});

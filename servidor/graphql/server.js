@@ -1,29 +1,36 @@
+import express from 'express';
+import { graphqlHTTP } from 'express-graphql';
+import { buildSchema } from 'graphql';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-const express = require('express');
-const { graphqlHTTP } = require('express-graphql');
-const { buildSchema } = require('graphql');
-const fs = require('fs');
-const path = require('path');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-const app = express();
-const PORT = 3002;
-
-const dataPath = path.join(__dirname, 'livros.json');
+const livrosPath = path.join(__dirname, 'livros.json');
 
 function readData() {
-  if (!fs.existsSync(dataPath)) return [];
-  const data = fs.readFileSync(dataPath);
+  if (!fs.existsSync(livrosPath)) return [];
+  const data = fs.readFileSync(livrosPath);
   return JSON.parse(data);
 }
 
 function writeData(data) {
-  fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
+  fs.writeFileSync(livrosPath, JSON.stringify(data, null, 2));
 }
 
-// Schema GraphQL
-const schema = buildSchema(\`
+const schema = buildSchema(`
   type Livro {
-    id: Int
+    id: Float
+    titulo: String
+    autor: String
+    ano: Int
+  }
+
+  input LivroInput {
+    id: Float
     titulo: String
     autor: String
     ano: Int
@@ -31,54 +38,32 @@ const schema = buildSchema(\`
 
   type Query {
     livros: [Livro]
-    livro(id: Int!): Livro
-  }
-
-  input LivroInput {
-    titulo: String
-    autor: String
-    ano: Int
   }
 
   type Mutation {
     adicionarLivro(input: LivroInput): Livro
-    atualizarLivro(id: Int!, input: LivroInput): Livro
-    removerLivro(id: Int!): String
   }
-\`);
+`);
 
 const root = {
   livros: () => readData(),
-  livro: ({ id }) => readData().find(l => l.id === id),
   adicionarLivro: ({ input }) => {
     const livros = readData();
-    const novo = { id: Date.now(), ...input };
+    const novo = { ...input, id: Date.now() };
     livros.push(novo);
     writeData(livros);
     return novo;
-  },
-  atualizarLivro: ({ id, input }) => {
-    const livros = readData();
-    const index = livros.findIndex(l => l.id === id);
-    if (index === -1) return null;
-    livros[index] = { ...livros[index], ...input };
-    writeData(livros);
-    return livros[index];
-  },
-  removerLivro: ({ id }) => {
-    let livros = readData();
-    livros = livros.filter(l => l.id !== id);
-    writeData(livros);
-    return "Removido com sucesso";
   }
 };
 
+const app = express();
 app.use('/graphql', graphqlHTTP({
-  schema: schema,
+  schema,
   rootValue: root,
   graphiql: true
 }));
 
-app.listen(PORT, () => {
-  console.log(`Servidor GraphQL a correr em http://localhost:\${PORT}/graphql`);
+app.listen(3002, () => {
+  console.log('Servidor GraphQL a correr em http://localhost:3002/graphql');
 });
+

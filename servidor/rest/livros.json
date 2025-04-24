@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "id": 1,
+    "titulo": "Python para Todos",
+    "autor": "Jo�o",
+    "ano": 2023
+  }
+]

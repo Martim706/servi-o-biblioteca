@@ -1,13 +1,13 @@
-
 const http = require('http');
 const soap = require('soap');
 const fs = require('fs');
 const path = require('path');
+const libxmljs = require('libxmljs2');
 
 const livrosPath = path.join(__dirname, 'livros.xml');
 const xsdPath = path.join(__dirname, 'livros.xsd');
 
-// Funções auxiliares simples para XML (sem validação por enquanto)
+// Função para obter livros (sem alterações)
 function getLivros(callback) {
     fs.readFile(livrosPath, 'utf8', (err, data) => {
         if (err) return callback({ erro: 'Erro ao ler XML' });
@@ -15,6 +15,7 @@ function getLivros(callback) {
     });
 }
 
+// Função para adicionar livro com validação XML contra XSD
 function addLivro(args, callback) {
     const novoLivroXml = `
 <livro>
@@ -22,7 +23,7 @@ function addLivro(args, callback) {
   <autor>${args.autor}</autor>
   <ano>${args.ano}</ano>
 </livro>`;
-    
+
     let livrosXml = '';
     if (fs.existsSync(livrosPath)) {
         livrosXml = fs.readFileSync(livrosPath, 'utf8').trim();
@@ -31,26 +32,40 @@ function addLivro(args, callback) {
         livrosXml = `<?xml version="1.0"?>\n<livros>${novoLivroXml}\n</livros>`;
     }
 
-    fs.writeFileSync(livrosPath, livrosXml);
-    callback({ resultado: 'Livro adicionado com sucesso!' });
+    try {
+        const xmlDoc = libxmljs.parseXml(livrosXml);
+        const xsdDoc = libxmljs.parseXml(fs.readFileSync(xsdPath, 'utf8'));
+
+        if (!xmlDoc.validate(xsdDoc)) {
+            const errors = xmlDoc.validationErrors.map(e => e.message).join('\n');
+            return callback({ erro: `Erro de validação do XML:\n${errors}` });
+        }
+
+        fs.writeFileSync(livrosPath, livrosXml);
+        callback({ resultado: 'Livro adicionado com sucesso!' });
+
+    } catch (err) {
+        callback({ erro: 'Erro ao validar XML: ' + err.message });
+    }
 }
 
 const service = {
-  BibliotecaService: {
-    BibliotecaPort: {
-      getLivros: function(_, callback) {
-        getLivros(callback);
-      },
-      addLivro: function(args, callback) {
-        addLivro(args, callback);
-      }
+    BibliotecaService: {
+        BibliotecaPort: {
+            getLivros: function (_, callback) {
+                getLivros(callback);
+            },
+            addLivro: function (args, callback) {
+                addLivro(args, callback);
+            }
+        }
     }
-  }
 };
 
 const xmlWsdl = fs.readFileSync(path.join(__dirname, 'biblioteca.wsdl'), 'utf8');
 const server = http.createServer((req, res) => res.end('SOAP server'));
 server.listen(3003, () => {
-  soap.listen(server, '/wsdl', service, xmlWsdl);
-  console.log('Servidor SOAP a correr em http://localhost:3003/wsdl');
+    soap.listen(server, '/wsdl', service, xmlWsdl);
+    console.log('Servidor SOAP a correr em http://localhost:3003/wsdl');
 });
+

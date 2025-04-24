@@ -1,1 +1,7 @@
-<?xml version="1.0"?><livros></livros>
+<?xml version="1.0"?><livros>
+<livro>
+  <titulo>Aventuras de Martim</titulo>
+  <autor>Martim</autor>
+  <ano>2025</ano>
+</livro>
+</livros>
