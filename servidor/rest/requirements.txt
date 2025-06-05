@@ -3,3 +3,6 @@ uvicorn
 pymongo
 python-jose
 jsonschema
+pika
+python-multipart
+

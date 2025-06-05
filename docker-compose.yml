@@ -1,10 +1,47 @@
-version: '3.8'
+version: "3.8"
+
 services:
   rest:
-    build: ./servidor/rest
+    build:
+      context: ./servidor/rest
+      dockerfile: Dockerfile
+    ports:
+      - "3001:8000"
+    depends_on:
+      - mongodb
+      - rabbitmq
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
   graphql:
     build: ./servidor/graphql
+    ports:
+      - "3002:3002"
+    command: node server.js
+
   soap:
     build: ./servidor/soap
+    ports:
+      - "3003:3003"
+    command: node server.js
+
   grpc:
     build: ./servidor/grpc
+    ports:
+      - "50051:50051"
+    command: python grpc_server.py
+
+  mongodb:
+    image: mongo
+    container_name: mongo
+    ports:
+      - "27017:27017"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+
+

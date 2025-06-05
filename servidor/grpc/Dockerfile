@@ -1,5 +1,9 @@
-FROM node:18
+FROM python:3.10-slim
+
 WORKDIR /app
-COPY . .
-RUN npm install
-CMD ["node", "server.js"]
+
+COPY . /app
+
+RUN pip install grpcio grpcio-tools protobuf
+
+CMD ["python", "grpc_server.py"]

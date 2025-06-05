@@ -1,9 +1,12 @@
+from fastapi import WebSocket, WebSocketDisconnect
+from typing import List
 import pika
 import json
 import xml.etree.ElementTree as ET
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError, jwt
 from pymongo import MongoClient
 from datetime import datetime, timedelta
@@ -19,7 +22,7 @@ SECRET_KEY = "supersegredo123"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongo:27017")  # <- mongo container name
 client = MongoClient(MONGO_URL)
 db = client["biblioteca"]
 livros_col = db["livros"]
@@ -40,6 +43,36 @@ fake_users_db = {
 # ========================
 
 app = FastAPI()
+
+# Middleware CORS — necessário para funcionar com cliente em navegador
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Pode ajustar para ["http://localhost:8080"] se servir via http.server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# ========================
+# WEBSOCKET - Notificações
+# ========================
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
 
 # ========================
 # JWT - Autenticação
@@ -111,14 +144,22 @@ def listar_livros():
     return livros
 
 @app.post("/livros")
-def criar_livro(livro: dict, user=Depends(decode_token)):
+async def criar_livro(livro: dict, user=Depends(decode_token)):
     try:
         validate(instance=livro, schema=livro_schema)
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=f"Erro de validação: {e.message}")
+    
     livros_col.insert_one(livro)
+    
+    # Envia evento para RabbitMQ (já existente)
     enviar_evento({"evento": "livro_criado", "livro": livro, "user": user["username"]})
+    
+    # 🔔 Envia notificação por WebSocket
+    await manager.broadcast(f"📚 Livro criado: {livro['titulo']} por {livro['autor']}")
+    
     return {"msg": "Livro criado com sucesso"}
+
 
 @app.delete("/livros/{titulo}", dependencies=[Depends(decode_token)])
 def remover_livro(titulo: str):
@@ -180,6 +221,22 @@ def importar_xml():
         return {"msg": "Importação XML concluída"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erro ao importar XML: {str(e)}")
+    
+# ========================
+# WebSocket - Notificações em tempo real
+# ========================
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # Mantém a conexão viva
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+
+
 
 
 

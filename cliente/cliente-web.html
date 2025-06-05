@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Cliente Web - Biblioteca</title>
+</head>
+<body>
+  <h1>Login</h1>
+  <form id="loginForm">
+    <input type="text" id="username" placeholder="Utilizador" required />
+    <input type="password" id="password" placeholder="Palavra-passe" required />
+    <button type="submit">Entrar</button>
+  </form>
+
+  <h2>Livros</h2>
+  <button onclick="obterLivros()">Atualizar Lista</button>
+  <ul id="livrosLista"></ul>
+
+  <h3>Adicionar Livro</h3>
+  <input type="text" id="titulo" placeholder="Título" />
+  <input type="text" id="autor" placeholder="Autor" />
+  <button onclick="criarLivro()">Criar Livro</button>
+
+  <script>
+    let token = '';
+
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      const res = await fetch('http://localhost:3001/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        token = data.access_token;
+        alert('Login com sucesso!');
+      } else {
+        alert('Falha no login.');
+      }
+    });
+
+    async function obterLivros() {
+      const res = await fetch('http://localhost:3001/livros', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        const livros = await res.json();
+        const ul = document.getElementById('livrosLista');
+        ul.innerHTML = '';
+        livros.forEach(l => {
+          const li = document.createElement('li');
+          li.textContent = `${l.titulo} - ${l.autor}`;
+          ul.appendChild(li);
+        });
+      } else {
+        alert('Erro ao obter livros');
+      }
+    }
+
+    async function criarLivro() {
+      const titulo = document.getElementById('titulo').value;
+      const autor = document.getElementById('autor').value;
+
+      const res = await fetch('http://localhost:3001/livros', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ titulo, autor })
+      });
+
+      if (res.ok) {
+        alert('Livro criado com sucesso!');
+        obterLivros();
+      } else {
+        alert('Erro ao criar livro.');
+      }
+    }
+  </script>
+</body>
+</html>
